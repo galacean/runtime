@@ -54,6 +54,8 @@ export class TextRenderer extends Renderer implements ICustomClone {
   @assignmentClone
   private _lineSpacing: number = 0;
   @assignmentClone
+  private _letterSpacing: number = 0;
+  @assignmentClone
   private _horizontalAlignment: TextHorizontalAlignment = TextHorizontalAlignment.Center;
   @assignmentClone
   private _verticalAlignment: TextVerticalAlignment = TextVerticalAlignment.Center;
@@ -168,7 +170,7 @@ export class TextRenderer extends Renderer implements ICustomClone {
   }
 
   /**
-   * The space between two lines (in pixels).
+   * The space between two lines.
    */
   get lineSpacing(): number {
     return this._lineSpacing;
@@ -177,6 +179,20 @@ export class TextRenderer extends Renderer implements ICustomClone {
   set lineSpacing(value: number) {
     if (this._lineSpacing !== value) {
       this._lineSpacing = value;
+      this._setDirtyFlagTrue(DirtyFlag.Position);
+    }
+  }
+
+  /**
+   * The space between two letters.
+   */
+  get letterSpacing(): number {
+    return this._letterSpacing;
+  }
+
+  set letterSpacing(value: number) {
+    if (this._letterSpacing !== value) {
+      this._letterSpacing = value;
       this._setDirtyFlagTrue(DirtyFlag.Position);
     }
   }
@@ -492,6 +508,7 @@ export class TextRenderer extends Renderer implements ICustomClone {
     const rendererWidth = this.width * _pixelsPerUnit;
     const halfRendererWidth = rendererWidth * 0.5;
     const rendererHeight = this.height * _pixelsPerUnit;
+    const letterSpacing = this.letterSpacing * _pixelsPerUnit;
 
     const textMetrics = this.enableWrapping
       ? TextUtils.measureTextWithWrap(this)
@@ -532,10 +549,10 @@ export class TextRenderer extends Renderer implements ICustomClone {
           startX = -halfRendererWidth;
           break;
         case TextHorizontalAlignment.Center:
-          startX = -lineWidth * 0.5;
+          startX = -lineWidth * 0.5 + letterSpacing * 0.5;
           break;
         case TextHorizontalAlignment.Right:
-          startX = halfRendererWidth - lineWidth;
+          startX = halfRendererWidth - lineWidth + letterSpacing;
           break;
       }
 
@@ -566,7 +583,7 @@ export class TextRenderer extends Renderer implements ICustomClone {
           j === 0 && (minX = Math.min(minX, left));
           j === m && (maxX = Math.max(maxX, right));
         }
-        startX += charInfo.xAdvance;
+        startX += charInfo.xAdvance + letterSpacing;
       }
 
       startY -= lineHeight;
