@@ -1,17 +1,25 @@
-import { Entity } from "@galacean/engine-core";
-import type { IEntity } from "../schema";
+import { Entity, Engine } from "@galacean/engine-core";
+import type { IPrefabFile } from "../schema";
+import { PrefabParserContext } from "./PrefabParserContext";
+import CompositionParser from "./CompositionParser";
 
-export class PrefabParser {
-  static parseChildren(entitiesConfig: Map<string, IEntity>, entities: Map<string, Entity>, parentId: string) {
-    const children = entitiesConfig.get(parentId).children;
-    if (children && children.length > 0) {
-      const parent = entities.get(parentId);
-      for (let i = 0; i < children.length; i++) {
-        const childId = children[i];
-        const entity = entities.get(childId);
-        parent.addChild(entity);
-        this.parseChildren(entitiesConfig, entities, childId);
-      }
-    }
+export class PrefabParser extends CompositionParser<Entity> {
+  /**
+   * Parse prefab data.
+   * @param engine - the engine of the parser context
+   * @param prefabData - prefab data which is exported by editor
+   * @returns a promise of prefab
+   */
+  static parse(engine: Engine, prefabData: IPrefabFile): Promise<Entity> {
+    const prefabEntity = new Entity(engine, "prefab");
+    const context = new PrefabParserContext(prefabData, prefabEntity);
+    const parser = new PrefabParser(context);
+    parser.start();
+    return parser.promise;
+  }
+
+  protected override appendChild(entity: Entity): void {
+    const { target } = this.context;
+    target.addChild(entity);
   }
 }
