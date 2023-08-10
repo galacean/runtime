@@ -289,10 +289,17 @@ export class ResourceManager {
       assetURL += "?q=" + paths.shift();
     }
 
+    // Check loader
+    const loader = ResourceManager._loaders[item.type];
+    if (!loader) {
+      throw `loader not found: ${item.type}`;
+    }
+
     // Check is loading
     const loadingPromises = this._loadingPromises;
     const loadingPromise = loadingPromises[assetURL];
-    if (loadingPromise) {
+
+    if (loadingPromise && loader.useCache) {
       return new AssetPromise((resolve, reject) => {
         loadingPromise
           .then((resource: EngineObject) => {
@@ -302,12 +309,6 @@ export class ResourceManager {
             reject(error);
           });
       });
-    }
-
-    // Check loader
-    const loader = ResourceManager._loaders[item.type];
-    if (!loader) {
-      throw `loader not found: ${item.type}`;
     }
 
     // Load asset
@@ -418,8 +419,8 @@ export class ResourceManager {
    * @internal
    * @beta Just for internal editor, not recommended for developers.
    */
-  getResourceByRef<T>(ref: { refId: string; key?: string; isClone?: boolean }): Promise<T> {
-    const { refId, key, isClone } = ref;
+  getResourceByRef<T>(ref: { refId: string; key?: string; isClone?: boolean; needContext?: boolean }): Promise<T> {
+    const { refId, key, isClone, needContext } = ref;
     const obj = this._objectPool[refId];
     let promise;
     if (obj) {
@@ -433,7 +434,8 @@ export class ResourceManager {
       url = key ? `${url}${url.indexOf("?") > -1 ? "&" : "?"}q=${key}` : url;
       promise = this.load<any>({
         url,
-        type: this._editorResourceConfig[refId].type
+        type: this._editorResourceConfig[refId].type,
+        params: { needContext }
       });
     }
     return promise.then((item) => (isClone ? item.clone() : item));
