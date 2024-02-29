@@ -1,15 +1,15 @@
 import { BoundingBox, Vector3 } from "@galacean/engine-math";
-import { Entity } from "../Entity";
-import { RenderContext } from "../RenderPipeline/RenderContext";
-import { Renderer } from "../Renderer";
 import { GLCapabilityType } from "../base/Constant";
 import { deepClone, shallowClone } from "../clone/CloneManager";
+import { Entity } from "../Entity";
 import { ModelMesh } from "../mesh/ModelMesh";
+import { Renderer } from "../Renderer";
+import { RenderContext } from "../RenderPipeline/RenderContext";
 import { ShaderMacro } from "../shader/ShaderMacro";
 import { ShaderProperty } from "../shader/ShaderProperty";
-import { ParticleGenerator } from "./ParticleGenerator";
 import { ParticleRenderMode } from "./enums/ParticleRenderMode";
 import { ParticleStopMode } from "./enums/ParticleStopMode";
+import { ParticleGenerator } from "./ParticleGenerator";
 
 /**
  * Particle Renderer Component.
@@ -155,14 +155,6 @@ export class ParticleRenderer extends Renderer {
     }
 
     super._prepareRender(context);
-  }
-
-  /**
-   * @internal
-   */
-  protected override _updateBounds(worldBounds: BoundingBox): void {
-    worldBounds.min.set(-Number.MAX_VALUE, -Number.MAX_VALUE, -Number.MAX_VALUE);
-    worldBounds.max.set(Number.MAX_VALUE, Number.MAX_VALUE, Number.MAX_VALUE);
   }
 
   /**

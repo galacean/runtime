@@ -1,3 +1,4 @@
+import { Vector2 } from "@galacean/engine-math";
 import { deepClone } from "../../clone/CloneManager";
 import { ParticleCurveMode } from "../enums/ParticleCurveMode";
 import { ParticleCurve } from "./ParticleCurve";
@@ -103,6 +104,40 @@ export class ParticleCompositeCurve {
       case ParticleCurveMode.TwoConstants:
         return this.constantMin + (this.constantMax - this.constantMin) * lerpFactor;
       default:
+        break;
+    }
+  }
+
+  /**
+   * @internal
+   * @param out - x as the max negative value, y as the max positive value of the curve.
+   */
+  _getMinMaxValue(out: Vector2): void {
+    out.x = out.y = 0;
+    switch (this.mode) {
+      case ParticleCurveMode.Constant:
+        out.x = Math.min(0, this.constantMax);
+        out.y = Math.max(0, this.constantMax);
+        break;
+      case ParticleCurveMode.TwoConstants:
+        out.x = Math.min(0, this.constantMin, this.constantMax);
+        out.y = Math.max(0, this.constantMin, this.constantMax);
+        break;
+      case ParticleCurveMode.Curve:
+        for (let i = 0; i < this.curveMax?.keys.length; i++) {
+          out.x = Math.min(out.x, this.curveMax.keys[i].value);
+          out.y = Math.max(out.y, this.curveMax.keys[i].value);
+        }
+        break;
+      case ParticleCurveMode.TwoCurves:
+        for (let i = 0; i < this.curveMax?.keys.length; i++) {
+          out.x = Math.min(out.x, this.curveMax.keys[i].value);
+          out.y = Math.max(out.y, this.curveMax.keys[i].value);
+        }
+        for (let i = 0; i < this.curveMin?.keys.length; i++) {
+          out.x = Math.min(out.x, this.curveMin.keys[i].value);
+          out.y = Math.max(out.y, this.curveMin.keys[i].value);
+        }
         break;
     }
   }
