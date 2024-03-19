@@ -9,13 +9,14 @@ import { IAssembler } from "../assembler/IAssembler";
 import { SimpleSpriteAssembler } from "../assembler/SimpleSpriteAssembler";
 import { SlicedSpriteAssembler } from "../assembler/SlicedSpriteAssembler";
 import { TiledSpriteAssembler } from "../assembler/TiledSpriteAssembler";
-import { VertexData2D } from "../data/VertexData2D";
 import { SpriteDrawMode } from "../enums/SpriteDrawMode";
 import { SpriteMaskInteraction } from "../enums/SpriteMaskInteraction";
 import { SpriteMaskLayer } from "../enums/SpriteMaskLayer";
 import { SpriteModifyFlags } from "../enums/SpriteModifyFlags";
 import { SpriteTileMode } from "../enums/SpriteTileMode";
 import { Sprite } from "./Sprite";
+import { RenderDataUsage } from "../../RenderPipeline/enums/RenderDataUsage";
+import { MBChunk } from "../../RenderPipeline/batcher/MeshBuffer";
 
 /**
  * Renders a Sprite for 2D graphics.
@@ -26,7 +27,7 @@ export class SpriteRenderer extends Renderer {
 
   /** @internal */
   @ignoreClone
-  _verticesData: VertexData2D;
+  _chunk: MBChunk;
 
   @ignoreClone
   private _drawMode: SpriteDrawMode;
@@ -157,6 +158,7 @@ export class SpriteRenderer extends Renderer {
   set color(value: Color) {
     if (this._color !== value) {
       this._color.copyFrom(value);
+      this._dirtyUpdateFlag |= SpriteRendererUpdateFlags.Color;
     }
   }
 
@@ -264,8 +266,8 @@ export class SpriteRenderer extends Renderer {
    */
   constructor(entity: Entity) {
     super(entity);
-    this._verticesData = new VertexData2D(4, [], [], null, this._color);
     this.drawMode = SpriteDrawMode.Simple;
+    this._dirtyUpdateFlag |= SpriteRendererUpdateFlags.Color;
     this.setMaterial(this._engine._spriteDefaultMaterial);
     this._onSpriteChange = this._onSpriteChange.bind(this);
   }
@@ -334,11 +336,19 @@ export class SpriteRenderer extends Renderer {
       this._dirtyUpdateFlag &= ~SpriteRendererUpdateFlags.UV;
     }
 
+    // Update color
+    if (this._dirtyUpdateFlag & SpriteRendererUpdateFlags.Color) {
+      this._assembler.updateColor(this);
+      this._dirtyUpdateFlag &= ~SpriteRendererUpdateFlags.Color;
+    }
+
     // Push primitive
-    const texture = this.sprite.texture;
-    const renderData = this._engine._spriteRenderDataPool.getFromPool();
-    renderData.set(this, material, this._verticesData, texture);
-    context.camera._renderPipeline.pushRenderData(context, renderData);
+    const { engine } = context.camera;
+    const renderData = engine._spriteRenderDataPool.getFromPool();
+    const { _chunk: chunk } = this;
+    renderData.set(this, material, chunk._meshBuffer._mesh._primitive, chunk._subMesh, this.sprite.texture, chunk);
+    renderData.usage = RenderDataUsage.Sprite;
+    engine._batcherManager.commitRenderData(context, renderData);
   }
 
   /**
@@ -357,7 +367,10 @@ export class SpriteRenderer extends Renderer {
     this._color = null;
     this._sprite = null;
     this._assembler = null;
-    this._verticesData = null;
+    if (this._chunk) {
+      this.engine._batcherManager._batcher2D.freeChunk(this._chunk);
+      this._chunk = null;
+    }
   }
 
   private _calDefaultSize(): void {
@@ -445,5 +458,7 @@ enum SpriteRendererUpdateFlags {
   /** Automatic Size. */
   AutomaticSize = 0x4,
   /** All. */
-  All = 0x7
+  All = 0x7,
+  /** Color. */
+  Color = 0x8
 }

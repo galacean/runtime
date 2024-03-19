@@ -2,6 +2,7 @@ import { SubMesh } from "../graphic";
 import { Primitive } from "../graphic/Primitive";
 import { Material } from "../material";
 import { Renderer } from "../Renderer";
+import { RenderDataUsage } from "./enums/RenderDataUsage";
 import { IPoolElement } from "./IPoolElement";
 
 export class RenderData implements IPoolElement {
@@ -9,10 +10,9 @@ export class RenderData implements IPoolElement {
   material: Material;
   primitive: Primitive;
   subPrimitive: SubMesh;
+  usage: RenderDataUsage = RenderDataUsage.Mesh;
 
-  multiRenderData: boolean;
-
-  setX(component: Renderer, material: Material, primitive: Primitive, subPrimitive: SubMesh): void {
+  set(component: Renderer, material: Material, primitive: Primitive, subPrimitive: SubMesh): void {
     this.component = component;
     this.material = material;
 

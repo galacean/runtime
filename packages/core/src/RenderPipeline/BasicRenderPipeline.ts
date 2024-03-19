@@ -1,8 +1,6 @@
 import { Vector2 } from "@galacean/engine-math";
-import { SpriteMask } from "../2d";
 import { Background } from "../Background";
 import { Camera } from "../Camera";
-import { DisorderedArray } from "../DisorderedArray";
 import { Engine } from "../Engine";
 import { BackgroundMode } from "../enums/BackgroundMode";
 import { BackgroundTextureFillMode } from "../enums/BackgroundTextureFillMode";
@@ -30,9 +28,6 @@ export class BasicRenderPipeline {
   /** @internal */
   _cullingResults: CullingResults;
 
-  /** @internal */
-  _allSpriteMasks: DisorderedArray<SpriteMask> = new DisorderedArray();
-
   private _camera: Camera;
   private _lastCanvasSize = new Vector2();
 
@@ -48,7 +43,7 @@ export class BasicRenderPipeline {
   constructor(camera: Camera) {
     this._camera = camera;
     const { engine } = camera;
-    this._cullingResults = new CullingResults(engine);
+    this._cullingResults = new CullingResults();
     this._cascadedShadowCasterPass = new CascadedShadowCasterPass(camera);
     this._depthOnlyPass = new DepthOnlyPass(engine);
     this._opaqueTexturePass = new OpaqueTexturePass(engine);
@@ -59,7 +54,6 @@ export class BasicRenderPipeline {
    */
   destroy(): void {
     this._cullingResults.destroy();
-    this._allSpriteMasks = null;
     this._camera = null;
   }
 
@@ -77,6 +71,7 @@ export class BasicRenderPipeline {
     const sunlight = scene._lightManager._sunlight;
     const depthOnlyPass = this._depthOnlyPass;
     const depthPassEnabled = camera.depthTextureMode === DepthTextureMode.PrePass && depthOnlyPass._supportDepthTexture;
+    const batcherManager = camera.engine._batcherManager;
     camera.engine._spriteMaskManager.clear();
 
     if (scene.castShadows && sunlight && sunlight.shadowType !== ShadowType.None) {
@@ -84,11 +79,14 @@ export class BasicRenderPipeline {
     }
 
     cullingResults.reset();
-    this._allSpriteMasks.length = 0;
+    batcherManager.clear();
+    camera.engine._spriteMaskManager.clear();
 
     context.applyVirtualCamera(camera._virtualCamera, depthPassEnabled);
     this._prepareRender(context);
 
+    batcherManager.flush();
+    batcherManager.uploadBuffer();
     cullingResults.sort();
 
     if (depthPassEnabled) {

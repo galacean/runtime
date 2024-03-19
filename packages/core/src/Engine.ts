@@ -18,10 +18,7 @@ import { ClassPool } from "./RenderPipeline/ClassPool";
 import { RenderContext } from "./RenderPipeline/RenderContext";
 import { RenderData } from "./RenderPipeline/RenderData";
 import { RenderElement } from "./RenderPipeline/RenderElement";
-import { SpriteMaskManager } from "./RenderPipeline/SpriteMaskManager";
-import { SpriteMaskRenderData } from "./RenderPipeline/SpriteMaskRenderData";
 import { SpriteRenderData } from "./RenderPipeline/SpriteRenderData";
-import { TextRenderData } from "./RenderPipeline/TextRenderData";
 import { Scene } from "./Scene";
 import { SceneManager } from "./SceneManager";
 import { ContentRestorer } from "./asset/ContentRestorer";
@@ -48,6 +45,8 @@ import { CullMode } from "./shader/enums/CullMode";
 import { RenderQueueType } from "./shader/enums/RenderQueueType";
 import { RenderState } from "./shader/state/RenderState";
 import { Texture2D, Texture2DArray, TextureCube, TextureCubeFace, TextureFormat } from "./texture";
+import { BatcherManager } from "./RenderPipeline/batcher/BatcherManager";
+import { SpriteMaskManager } from "./RenderPipeline/SpriteMaskManager";
 import { XRManager } from "./xr/XRManager";
 
 ShaderPool.init();
@@ -69,6 +68,10 @@ export class Engine extends EventDispatcher {
   readonly xrManager: XRManager;
 
   /** @internal */
+  _batcherManager: BatcherManager;
+  /** @internal */
+  _spriteMaskManager: SpriteMaskManager;
+
   _particleBufferUtils: ParticleBufferUtils;
   /** @internal */
   _physicsInitialized: boolean = false;
@@ -87,10 +90,6 @@ export class Engine extends EventDispatcher {
   _renderDataPool: ClassPool<RenderData> = new ClassPool(RenderData);
   /* @internal */
   _spriteRenderDataPool: ClassPool<SpriteRenderData> = new ClassPool(SpriteRenderData);
-  /* @internal */
-  _spriteMaskRenderDataPool: ClassPool<SpriteMaskRenderData> = new ClassPool(SpriteMaskRenderData);
-  /* @internal */
-  _textRenderDataPool: ClassPool<TextRenderData> = new ClassPool(TextRenderData);
 
   /* @internal */
   _basicResources: BasicResources;
@@ -126,8 +125,6 @@ export class Engine extends EventDispatcher {
   _renderCount: number = 0;
   /* @internal */
   _shaderProgramPools: ShaderProgramPool[] = [];
-  /** @internal */
-  _spriteMaskManager: SpriteMaskManager;
   /** @internal */
   _canSpriteBatch: boolean = true;
   /** @internal */
@@ -268,6 +265,9 @@ export class Engine extends EventDispatcher {
     this._textDefaultFont = Font.createFromOS(this, "Arial");
     this._textDefaultFont.isGCIgnored = true;
 
+    this.inputManager = new InputManager(this);
+    this._batcherManager = new BatcherManager(this);
+    this._spriteMaskManager = new SpriteMaskManager(this);
     this.inputManager = new InputManager(this, configuration.input);
 
     const { xrDevice } = configuration;
@@ -352,8 +352,6 @@ export class Engine extends EventDispatcher {
     this._renderElementPool.resetPool();
     this._renderDataPool.resetPool();
     this._spriteRenderDataPool.resetPool();
-    this._spriteMaskRenderDataPool.resetPool();
-    this._textRenderDataPool.resetPool();
 
     this.xrManager?._update();
     const { inputManager, _physicsInitialized: physicsInitialized } = this;
@@ -459,13 +457,14 @@ export class Engine extends EventDispatcher {
     this._fontMap = null;
 
     this.inputManager._destroy();
+    this._batcherManager.destroy();
+    this._spriteMaskManager.destroy();
     this.xrManager?._destroy();
     this.dispatch("shutdown", this);
 
     // Cancel animation
     this.pause();
 
-    this._spriteMaskManager.destroy();
     this._hardwareRenderer.destroy();
 
     this.removeAllEventListeners();
@@ -759,8 +758,6 @@ export class Engine extends EventDispatcher {
     this._renderElementPool.garbageCollection();
     this._renderDataPool.garbageCollection();
     this._spriteRenderDataPool.garbageCollection();
-    this._spriteMaskRenderDataPool.garbageCollection();
-    this._textRenderDataPool.garbageCollection();
   }
 
   /**

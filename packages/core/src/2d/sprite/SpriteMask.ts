@@ -6,10 +6,11 @@ import { Renderer, RendererUpdateFlags } from "../../Renderer";
 import { assignmentClone, ignoreClone } from "../../clone/CloneManager";
 import { ShaderProperty } from "../../shader/ShaderProperty";
 import { SimpleSpriteAssembler } from "../assembler/SimpleSpriteAssembler";
-import { VertexData2D } from "../data/VertexData2D";
 import { SpriteMaskLayer } from "../enums/SpriteMaskLayer";
 import { SpriteModifyFlags } from "../enums/SpriteModifyFlags";
 import { Sprite } from "./Sprite";
+import { RenderDataUsage } from "../../RenderPipeline/enums/RenderDataUsage";
+import { MBChunk } from "../../RenderPipeline/batcher/MeshBuffer";
 
 /**
  * A component for masking Sprites.
@@ -28,7 +29,7 @@ export class SpriteMask extends Renderer {
 
   /** @internal */
   @ignoreClone
-  _verticesData: VertexData2D;
+  _chunk: MBChunk;
 
   @ignoreClone
   private _sprite: Sprite = null;
@@ -168,7 +169,6 @@ export class SpriteMask extends Renderer {
    */
   constructor(entity: Entity) {
     super(entity);
-    this._verticesData = new VertexData2D(4, [], []);
     SimpleSpriteAssembler.resetData(this);
     this.setMaterial(this._engine._spriteMaskDefaultMaterial);
     this.shaderData.setFloat(SpriteMask._alphaCutoffProperty, this._alphaCutoff);
@@ -226,10 +226,11 @@ export class SpriteMask extends Renderer {
       this._dirtyUpdateFlag &= ~SpriteMaskUpdateFlags.UV;
     }
 
-    context.camera._renderPipeline._allSpriteMasks.add(this);
-
-    const renderData = engine._spriteMaskRenderDataPool.getFromPool();
-    renderData.set(this, material, this._verticesData);
+    engine._spriteMaskManager.addMask(this);
+    const renderData = engine._spriteRenderDataPool.getFromPool();
+    const { _chunk: chunk } = this;
+    renderData.set(this, material, chunk._meshBuffer._mesh._primitive, chunk._subMesh, this.sprite.texture, chunk);
+    renderData.usage = RenderDataUsage.SpriteMask;
 
     const renderElement = engine._renderElementPool.getFromPool();
     renderElement.set(renderData, material.shader.subShaders[0].passes);
@@ -250,7 +251,10 @@ export class SpriteMask extends Renderer {
     super._onDestroy();
 
     this._sprite = null;
-    this._verticesData = null;
+    if (this._chunk) {
+      this.engine._batcherManager._batcher2D.freeChunk(this._chunk);
+      this._chunk = null;
+    }
   }
 
   private _calDefaultSize(): void {

@@ -6,6 +6,7 @@ import { Logger } from "../base/Logger";
 import { ignoreClone } from "../clone/CloneManager";
 import { Mesh, MeshModifyFlags } from "../graphic/Mesh";
 import { ShaderMacro } from "../shader/ShaderMacro";
+import { RenderDataUsage } from "../RenderPipeline/enums/RenderDataUsage";
 
 /**
  * MeshRenderer Component.
@@ -149,7 +150,7 @@ export class MeshRenderer extends Renderer {
 
     const materials = this._materials;
     const subMeshes = mesh.subMeshes;
-    const renderPipeline = context.camera._renderPipeline;
+    const batcherManager = context.camera.engine._batcherManager;
     const meshRenderDataPool = this._engine._renderDataPool;
     for (let i = 0, n = subMeshes.length; i < n; i++) {
       let material = materials[i];
@@ -161,8 +162,9 @@ export class MeshRenderer extends Renderer {
       }
 
       const renderData = meshRenderDataPool.getFromPool();
-      renderData.setX(this, material, mesh._primitive, subMeshes[i]);
-      renderPipeline.pushRenderData(context, renderData);
+      renderData.usage = RenderDataUsage.Mesh;
+      renderData.set(this, material, mesh._primitive, subMeshes[i]);
+      batcherManager.commitRenderData(context, renderData);
     }
   }
 
